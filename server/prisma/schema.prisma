@@ -1,0 +1,30 @@
+// Prisma Schema for PostgreSQL
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model LopHoc {
+  ID        Int        @id @default(autoincrement())
+  MaLop     String     @unique @db.VarChar(20)
+  TenLop    String     @db.VarChar(100)
+  sinhViens SinhVien[]
+
+  @@map("LopHoc")
+}
+
+model SinhVien {
+  ID       Int       @id @default(autoincrement())
+  HoTen    String    @db.VarChar(100)
+  MaLop    String    @db.VarChar(20)
+  DiemTB   Float?
+  NgaySinh DateTime? @db.Date
+  lopHoc   LopHoc    @relation(fields: [MaLop], references: [MaLop], onDelete: Restrict, onUpdate: Cascade)
+
+  @@map("SinhVien")
+}
+
