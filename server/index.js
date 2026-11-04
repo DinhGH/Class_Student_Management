@@ -13,7 +13,9 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-// Helper xếp loại học lực sinh viên
+//comment for test
+//comment for test1
+// Helper xếp loại học lực sinh viên.
 function getXepLoai(diemTB) {
   const diem = Number(diemTB);
   if (isNaN(diem)) return "Chưa có";

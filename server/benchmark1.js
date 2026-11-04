@@ -4,6 +4,7 @@
  * 1. KHÔNG CACHE - ĐỒNG BỘ TUẦN TỰ: 3 hàm X x 1s = ~3 giây (3000ms)
  * 2. KHÔNG CACHE - BẤT ĐỒNG BỘ SONG SONG: 3 hàm X chạy song song bằng Promise.all = ~1 giây (1000ms)
  * 3. CÓ FULL-PAGE RESPONSE CACHE: Trả thẳng từ RAM = ~1 ms!
+ * 4. Test content
  */
 
 const autocannon = require("autocannon");

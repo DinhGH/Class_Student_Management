@@ -1,0 +1,9 @@
+{
+  "id": "snap_1793786022382_6ddc0d59",
+  "label": "Restored: checkpoint2",
+  "message": "Rolled back to snapshot from 09:43:32 4/11/2026",
+  "createdAt": "2026-11-04T09:53:44.489Z",
+  "source": "GITHUB",
+  "fileCount": 28,
+  "sizeBytes": 767182
+}
