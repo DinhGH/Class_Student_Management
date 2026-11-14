@@ -9,9 +9,16 @@ const { responseCache, pageCache } = require("./cacheMiddleware");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const SERVER_NAME = process.env.SERVER_NAME || "Backend Server (Local)";
 
 app.use(cors());
 app.use(express.json());
+
+// Gắn header X-Served-By trên mọi response để kiểm chứng Load Balancing
+app.use((req, res, next) => {
+  res.setHeader("X-Served-By", SERVER_NAME);
+  next();
+});
 
 // Helper xếp loại học lực sinh viên
 function getXepLoai(diemTB) {
@@ -162,15 +169,25 @@ async function fetchStatsData(mode = "async") {
 }
 
 // -------------------------------------------------------------
-// Health Check API
+// Health Check & Server Info API
 // -------------------------------------------------------------
 app.get("/api/health", async (req, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
-    res.json({ status: "ok", dbConnected: true });
+    res.json({ status: "ok", dbConnected: true, serverName: SERVER_NAME });
   } catch (err) {
-    res.status(500).json({ status: "error", message: err.message });
+    res
+      .status(500)
+      .json({ status: "error", serverName: SERVER_NAME, message: err.message });
   }
+});
+
+app.get("/api/server-info", (req, res) => {
+  res.json({
+    success: true,
+    serverName: SERVER_NAME,
+    timestamp: new Date().toISOString(),
+  });
 });
 
 // -------------------------------------------------------------
@@ -241,16 +258,17 @@ app.get("/api/stats-async", async (req, res) => {
 });
 
 // 4. API Thông tin Cache hiện tại
-app.get("/api/stats/cache-info", (req, res) => {
+app.get("/api/stats/cache-info", async (req, res) => {
   res.json({
     success: true,
-    cacheInfo: responseCache.getStats(),
+    serverName: SERVER_NAME,
+    cacheInfo: await responseCache.getStats(),
   });
 });
 
 // 5. API Xóa Cache thủ công
-app.post("/api/stats/clear-cache", (req, res) => {
-  const count = responseCache.invalidate("/api/stats");
+app.post("/api/stats/clear-cache", async (req, res) => {
+  const count = await await responseCache.invalidate("/api/stats");
   res.json({
     success: true,
     message: `Đã xóa ${count} cache của trang thống kê!`,
@@ -341,7 +359,7 @@ app.post("/api/classes", async (req, res) => {
     });
 
     // Invalidate Page Cache khi dữ liệu thay đổi
-    responseCache.invalidate("/api/stats");
+    await responseCache.invalidate("/api/stats");
 
     res.status(201).json({
       success: true,
@@ -412,7 +430,7 @@ app.put("/api/classes/:id", async (req, res) => {
       },
     });
 
-    responseCache.invalidate("/api/stats");
+    await responseCache.invalidate("/api/stats");
 
     res.json({
       success: true,
@@ -467,7 +485,7 @@ app.delete("/api/classes/:id", async (req, res) => {
       where: { ID: classId },
     });
 
-    responseCache.invalidate("/api/stats");
+    await responseCache.invalidate("/api/stats");
 
     res.json({
       success: true,
@@ -610,7 +628,7 @@ app.post("/api/students", async (req, res) => {
       },
     });
 
-    responseCache.invalidate("/api/stats");
+    await responseCache.invalidate("/api/stats");
 
     res.status(201).json({
       success: true,
@@ -709,7 +727,7 @@ app.put("/api/students/:id", async (req, res) => {
       },
     });
 
-    responseCache.invalidate("/api/stats");
+    await responseCache.invalidate("/api/stats");
 
     res.json({
       success: true,
@@ -759,7 +777,7 @@ app.delete("/api/students/:id", async (req, res) => {
       where: { ID: studentId },
     });
 
-    responseCache.invalidate("/api/stats");
+    await responseCache.invalidate("/api/stats");
 
     res.json({
       success: true,

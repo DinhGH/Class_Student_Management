@@ -1,0 +1,162 @@
+services:
+  db-master:
+    image: postgres:16-alpine
+    container_name: db-master
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: examschedule
+      POSTGRES_REPLICATION_USER: replicator
+      POSTGRES_REPLICATION_PASSWORD: replicator_pass
+    command: >
+      postgres
+      -c wal_level=replica
+      -c max_wal_senders=10
+      -c max_replication_slots=10
+      -c hot_standby=on
+    volumes:
+      - db_master_data:/var/lib/postgresql/data
+      - ./db/init-master.sh:/docker-entrypoint-initdb.d/init-master.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d examschedule"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - app-network
+
+  db-slave:
+    image: postgres:16-alpine
+    container_name: db-slave
+    restart: unless-stopped
+    depends_on:
+      db-master:
+        condition: service_healthy
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: examschedule
+      POSTGRES_REPLICATION_USER: replicator
+      POSTGRES_REPLICATION_PASSWORD: replicator_pass
+      DB_MASTER_HOST: db-master
+      DB_MASTER_PORT: 5432
+      PGDATA: /var/lib/postgresql/data
+    volumes:
+      - db_slave_data:/var/lib/postgresql/data
+      - ./db/init-slave.sh:/usr/local/bin/init-slave.sh:ro
+    entrypoint:
+      [
+        "/bin/sh",
+        "-c",
+        "tr -d '\\r' < /usr/local/bin/init-slave.sh > /tmp/init-slave.sh && exec /bin/sh /tmp/init-slave.sh",
+      ]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d examschedule"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - app-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - app-network
+
+  server-1:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: server-1
+    restart: unless-stopped
+    depends_on:
+      db-master:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      PORT: 5000
+      SERVER_NAME: "Backend Server 1"
+      DATABASE_URL: "postgresql://postgres:postgres@db-master:5432/examschedule?schema=public"
+      REDIS_URL: "redis://redis:6379"
+    networks:
+      - app-network
+
+  server-2:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: server-2
+    restart: unless-stopped
+    depends_on:
+      db-master:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      PORT: 5000
+      SERVER_NAME: "Backend Server 2"
+      DATABASE_URL: "postgresql://postgres:postgres@db-master:5432/examschedule?schema=public"
+      REDIS_URL: "redis://redis:6379"
+    networks:
+      - app-network
+
+  server-3:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: server-3
+    restart: unless-stopped
+    depends_on:
+      db-master:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      PORT: 5000
+      SERVER_NAME: "Backend Server 3"
+      DATABASE_URL: "postgresql://postgres:postgres@db-master:5432/examschedule?schema=public"
+      REDIS_URL: "redis://redis:6379"
+    networks:
+      - app-network
+
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: client
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: nginx-lb
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - client
+      - server-1
+      - server-2
+      - server-3
+    networks:
+      - app-network
+
+volumes:
+  db_master_data:
+  db_slave_data:
+
+networks:
+  app-network:
+    driver: bridge
